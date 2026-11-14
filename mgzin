@@ -1,0 +1,438 @@
+
+--// MGZINN SCRIPTS - ULTRA CONTROL V2
+--// SHADER + CLEAN SCREEN + RENDER BOOST + DRAG PANEL
+
+local Players = game:GetService("Players")
+local Lighting = game:GetService("Lighting")
+local StarterGui = game:GetService("StarterGui")
+local UserInputService = game:GetService("UserInputService")
+local UserGameSettings = UserSettings():GetService("UserGameSettings")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+local shaderEnabled = false
+local cleanEnabled = false
+local renderEnabled = false
+
+--// ORIGINAL SETTINGS
+
+local originalLighting = {
+    Brightness = Lighting.Brightness,
+    ClockTime = Lighting.ClockTime,
+    GlobalShadows = Lighting.GlobalShadows,
+    ExposureCompensation = Lighting.ExposureCompensation,
+    ShadowSoftness = Lighting.ShadowSoftness,
+    EnvironmentDiffuseScale = Lighting.EnvironmentDiffuseScale,
+    EnvironmentSpecularScale = Lighting.EnvironmentSpecularScale,
+}
+
+local originalQuality = UserGameSettings.SavedQualityLevel
+local originalGuiStates = {}
+local originalCoreStates = {}
+local originalEffectStates = {}
+local shaderEffects = {}
+
+--// GUI
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "MGZINN SCRIPTS"
+gui.ResetOnSpawn = false
+gui.DisplayOrder = 999
+gui.Parent = playerGui
+
+--// MAIN PANEL
+
+local frame = Instance.new("Frame")
+frame.Name = "MainPanel"
+frame.Size = UDim2.fromOffset(300, 390)
+frame.Position = UDim2.new(0.5, -150, 0.5, -195)
+frame.BackgroundColor3 = Color3.fromRGB(15, 18, 28)
+frame.BorderSizePixel = 0
+frame.Active = true
+frame.Parent = gui
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 14)
+corner.Parent = frame
+
+local stroke = Instance.new("UIStroke")
+stroke.Color = Color3.fromRGB(0, 170, 255)
+stroke.Thickness = 2
+stroke.Parent = frame
+
+local gradient = Instance.new("UIGradient")
+gradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 35, 55)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(12, 14, 24))
+})
+gradient.Rotation = 45
+gradient.Parent = frame
+
+--// TITLE
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, -55, 0, 48)
+title.Position = UDim2.fromOffset(15, 0)
+title.BackgroundTransparency = 1
+title.Text = "MGZINN SCRIPTS"
+title.TextColor3 = Color3.fromRGB(0, 190, 255)
+title.Font = Enum.Font.GothamBold
+title.TextSize = 20
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.Parent = frame
+
+local subtitle = Instance.new("TextLabel")
+subtitle.Size = UDim2.new(1, -30, 0, 20)
+subtitle.Position = UDim2.fromOffset(15, 40)
+subtitle.BackgroundTransparency = 1
+subtitle.Text = "PREMIUM GRAPHICS CONTROL V2"
+subtitle.TextColor3 = Color3.fromRGB(130, 150, 175)
+subtitle.Font = Enum.Font.Gotham
+subtitle.TextSize = 10
+subtitle.TextXAlignment = Enum.TextXAlignment.Left
+subtitle.Parent = frame
+
+--// BUTTON CREATOR
+
+local function createButton(text, y, color)
+    local button = Instance.new("TextButton")
+    button.Size = UDim2.new(1, -30, 0, 48)
+    button.Position = UDim2.fromOffset(15, y)
+    button.BackgroundColor3 = color or Color3.fromRGB(32, 42, 58)
+    button.TextColor3 = Color3.new(1, 1, 1)
+    button.Font = Enum.Font.GothamBold
+    button.TextSize = 13
+    button.Text = text
+    button.AutoButtonColor = true
+    button.Parent = frame
+
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, 9)
+    c.Parent = button
+
+    local s = Instance.new("UIStroke")
+    s.Color = Color3.fromRGB(50, 100, 145)
+    s.Transparency = 0.45
+    s.Parent = button
+
+    return button
+end
+
+local shaderButton = createButton("SHADER: OFF", 75)
+local cleanButton = createButton("CLEAN SCREEN: OFF", 133)
+local renderButton = createButton("RENDER BOOST: OFF", 191)
+local resetButton = createButton(
+    "RESET GRAPHICS",
+    249,
+    Color3.fromRGB(100, 45, 45)
+)
+
+--// STATUS
+
+local status = Instance.new("TextLabel")
+status.Size = UDim2.new(1, -30, 0, 30)
+status.Position = UDim2.fromOffset(15, 315)
+status.BackgroundTransparency = 1
+status.Text = "MGZINN SYSTEM READY"
+status.TextColor3 = Color3.fromRGB(0, 200, 130)
+status.Font = Enum.Font.GothamBold
+status.TextSize = 11
+status.Parent = frame
+
+--// MINIMIZE
+
+local minimize = Instance.new("TextButton")
+minimize.Size = UDim2.fromOffset(35, 35)
+minimize.Position = UDim2.new(1, -43, 0, 7)
+minimize.Text = "—"
+minimize.TextColor3 = Color3.new(1, 1, 1)
+minimize.BackgroundColor3 = Color3.fromRGB(35, 45, 60)
+minimize.Font = Enum.Font.GothamBold
+minimize.TextSize = 18
+minimize.Parent = frame
+
+local openButton = Instance.new("TextButton")
+openButton.Size = UDim2.fromOffset(125, 42)
+openButton.Position = UDim2.new(0, 15, 0.5, 0)
+openButton.BackgroundColor3 = Color3.fromRGB(0, 130, 210)
+openButton.Text = "MGZINN OPEN"
+openButton.TextColor3 = Color3.new(1, 1, 1)
+openButton.Font = Enum.Font.GothamBold
+openButton.TextSize = 13
+openButton.Visible = false
+openButton.Parent = gui
+
+local openCorner = Instance.new("UICorner")
+openCorner.CornerRadius = UDim.new(0, 10)
+openCorner.Parent = openButton
+
+--// DRAG PANEL
+
+local dragging = false
+local dragStart
+local startPosition
+
+frame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPosition = frame.Position
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and input.UserInputType ==
+        Enum.UserInputType.MouseMovement then
+
+        local delta = input.Position - dragStart
+
+        frame.Position = UDim2.new(
+            startPosition.X.Scale,
+            startPosition.X.Offset + delta.X,
+            startPosition.Y.Scale,
+            startPosition.Y.Offset + delta.Y
+        )
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = false
+    end
+end)
+
+--// SHADER SYSTEM
+
+local function removeShader()
+    for _, effect in ipairs(shaderEffects) do
+        if effect and effect.Parent then
+            effect:Destroy()
+        end
+    end
+
+    table.clear(shaderEffects)
+end
+
+local function setShader(enabled)
+    shaderEnabled = enabled
+    removeShader()
+
+    if enabled then
+        local atmosphere = Instance.new("Atmosphere")
+        atmosphere.Name = "MGZINN_Atmosphere"
+        atmosphere.Density = 0.25
+        atmosphere.Offset = 0.15
+        atmosphere.Color = Color3.fromRGB(205, 220, 255)
+        atmosphere.Decay = Color3.fromRGB(100, 120, 155)
+        atmosphere.Glare = 0.3
+        atmosphere.Haze = 1
+        atmosphere.Parent = Lighting
+        table.insert(shaderEffects, atmosphere)
+
+        local bloom = Instance.new("BloomEffect")
+        bloom.Name = "MGZINN_Bloom"
+        bloom.Intensity = 0.35
+        bloom.Size = 28
+        bloom.Threshold = 1.1
+        bloom.Parent = Lighting
+        table.insert(shaderEffects, bloom)
+
+        local color = Instance.new("ColorCorrectionEffect")
+        color.Name = "MGZINN_Color"
+        color.Brightness = 0.04
+        color.Contrast = 0.16
+        color.Saturation = 0.2
+        color.TintColor = Color3.fromRGB(255, 248, 238)
+        color.Parent = Lighting
+        table.insert(shaderEffects, color)
+
+        local rays = Instance.new("SunRaysEffect")
+        rays.Name = "MGZINN_SunRays"
+        rays.Intensity = 0.12
+        rays.Spread = 0.8
+        rays.Parent = Lighting
+        table.insert(shaderEffects, rays)
+
+        Lighting.Brightness = 3
+        Lighting.ClockTime = 14
+        Lighting.GlobalShadows = true
+        Lighting.ExposureCompensation = 0.15
+        Lighting.EnvironmentDiffuseScale = 1
+        Lighting.EnvironmentSpecularScale = 1
+    else
+        for property, value in pairs(originalLighting) do
+            Lighting[property] = value
+        end
+    end
+
+    shaderButton.Text = enabled and
+        "SHADER: ON" or "SHADER: OFF"
+
+    status.Text = enabled and
+        "MGZINN SHADER ACTIVATED" or "SHADER DISABLED"
+end
+
+--// CLEAN SCREEN SYSTEM
+
+local coreTypes = {
+    Enum.CoreGuiType.Backpack,
+    Enum.CoreGuiType.Chat,
+    Enum.CoreGuiType.EmotesMenu,
+    Enum.CoreGuiType.Health,
+    Enum.CoreGuiType.PlayerList,
+}
+
+local function setClean(enabled)
+    cleanEnabled = enabled
+
+    if enabled then
+        table.clear(originalGuiStates)
+        table.clear(originalCoreStates)
+
+        for _, item in ipairs(playerGui:GetChildren()) do
+            if item:IsA("ScreenGui") and item ~= gui then
+                originalGuiStates[item] = item.Enabled
+                item.Enabled = false
+            end
+        end
+
+        for _, coreType in ipairs(coreTypes) do
+            pcall(function()
+                originalCoreStates[coreType] =
+                    StarterGui:GetCoreGuiEnabled(coreType)
+
+                StarterGui:SetCoreGuiEnabled(coreType, false)
+            end)
+        end
+    else
+        for item, previousState in pairs(originalGuiStates) do
+            if item and item.Parent then
+                item.Enabled = previousState
+            end
+        end
+
+        for coreType, previousState in pairs(originalCoreStates) do
+            pcall(function()
+                StarterGui:SetCoreGuiEnabled(
+                    coreType,
+                    previousState
+                )
+            end)
+        end
+
+        table.clear(originalGuiStates)
+        table.clear(originalCoreStates)
+    end
+
+    cleanButton.Text = enabled and
+        "CLEAN SCREEN: ON" or "CLEAN SCREEN: OFF"
+
+    status.Text = enabled and
+        "CLEAN SCREEN ACTIVATED" or "INTERFACE RESTORED"
+end
+
+--// RENDER BOOST
+
+local function setRender(enabled)
+    renderEnabled = enabled
+
+    if enabled then
+        originalQuality = UserGameSettings.SavedQualityLevel
+
+        pcall(function()
+            UserGameSettings.SavedQualityLevel =
+                Enum.SavedQualitySetting.QualityLevel1
+        end)
+
+        Lighting.GlobalShadows = false
+
+        table.clear(originalEffectStates)
+
+        for _, effect in ipairs(Lighting:GetChildren()) do
+            if effect:IsA("PostEffect") then
+                originalEffectStates[effect] = effect.Enabled
+                effect.Enabled = false
+            end
+        end
+    else
+        pcall(function()
+            UserGameSettings.SavedQualityLevel = originalQuality
+        end)
+
+        Lighting.GlobalShadows =
+            originalLighting.GlobalShadows
+
+        for effect, previousState in pairs(originalEffectStates) do
+            if effect and effect.Parent then
+                effect.Enabled = previousState
+            end
+        end
+
+        table.clear(originalEffectStates)
+    end
+
+    renderButton.Text = enabled and
+        "RENDER BOOST: ON" or "RENDER BOOST: OFF"
+
+    status.Text = enabled and
+        "MGZINN PERFORMANCE MODE" or "GRAPHICS RESTORED"
+end
+
+--// RESET SYSTEM
+
+local function resetAll()
+    if shaderEnabled then
+        setShader(false)
+    end
+
+    if cleanEnabled then
+        setClean(false)
+    end
+
+    if renderEnabled then
+        setRender(false)
+    end
+
+    for property, value in pairs(originalLighting) do
+        pcall(function()
+            Lighting[property] = value
+        end)
+    end
+
+    status.Text = "MGZINN SETTINGS RESTORED"
+end
+
+--// BUTTON CONNECTIONS
+
+shaderButton.MouseButton1Click:Connect(function()
+    setShader(not shaderEnabled)
+end)
+
+cleanButton.MouseButton1Click:Connect(function()
+    setClean(not cleanEnabled)
+end)
+
+renderButton.MouseButton1Click:Connect(function()
+    setRender(not renderEnabled)
+end)
+
+resetButton.MouseButton1Click:Connect(resetAll)
+
+minimize.MouseButton1Click:Connect(function()
+    frame.Visible = false
+    openButton.Visible = true
+end)
+
+openButton.MouseButton1Click:Connect(function()
+    frame.Visible = true
+    openButton.Visible = false
+end)
+
+--// CLEANUP
+
+gui.Destroying:Connect(function()
+    resetAll()
+end)
+
+print("MGZINN SCRIPTS LOADED!")
